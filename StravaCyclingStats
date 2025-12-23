@@ -26,6 +26,7 @@ class CycloMeter():
         except Exception as e:
             raise IOError(f"Failed to read CSV: {e}") from e
         df.columns = [c.lower() for c in df.columns]
+        df['activity date'] = pd.to_datetime(df['activity date'], format="%b %d, %Y, %I:%M:%S %p") #Activity date column to datetime format for accurate sorting
         self.data = df.copy()   # keep copy
         return self
         
@@ -186,19 +187,20 @@ def displayHelp():
 
 def updateStatusBar(status_bar:tk.Text):
     '''Reroutes sys print statements to TextRedirector object'''
-    sys.stdout=TextRedirector(status_bar)
+    #sys.stdout=TextRedirector(status_bar)
 
-def treeviewInit(tree_view:Treeview, display_data, pandasGenerator, cyclingObj:CycloMeter):
+def treeviewInit(tree_view:Treeview, scroll_bar:ttk.Scrollbar, display_data, pandasGenerator, cyclingObj:CycloMeter):
     '''Initiliazes treeview. Remove children, format size of the treeview, and insert values of cyclingObj'''
     for t in tree_view.get_children(): tree_view.delete(t)
-    treeviewAdjustTable(display_data, tree_view, cyclingObj)
+    treeviewAdjustTable(display_data, tree_view, scroll_bar, cyclingObj)
     treeviewInsertValues(tree_view, pandasGenerator)
+    initScrollBarOntoTreeview(tree_view, scroll_bar)
     return cyclingObj
 
-def treeviewAdjustTable(display_data:pd.DataFrame, tree_view:Treeview, cyclingObj:CycloMeter):
+def treeviewAdjustTable(display_data:pd.DataFrame, tree_view:Treeview, scroll_bar:ttk.Scrollbar, cyclingObj:CycloMeter):
     '''Helper function to adjust the properties of treeview like width of column and the functionality of the click to heading.'''
     for i in list(display_data.columns): 
-        tree_view.heading(i, text=i, command=lambda col=i: (cyclingObj.sortValues(col), insertTable(tree_view, cyclingObj))) 
+        tree_view.heading(i, text=i, command=lambda col=i: (cyclingObj.sortValues(col), insertTable(tree_view, scroll_bar,cyclingObj))) 
         tree_view.column(i, width=180) #column sorting
 
 def treeviewInsertValues(tree_view:Treeview,pandasGenerator):
@@ -208,13 +210,27 @@ def treeviewInsertValues(tree_view:Treeview,pandasGenerator):
         tree_view.insert('','end',values=raw_values.tolist()) #''(start) to end insertion of columns not records
     print(f"Table insertion is complete!") #debugging needs removed on scaffolding
 
-def insertTable(tree_view, cyclingObj:CycloMeter):
+def insertTable(tree_view, scroll_bar, cyclingObj:CycloMeter):
     '''Insert table with filtered or unfiltered results packed, and initialize treeView.'''
     display_data:pd.DataFrame=displayData(cyclingObj)
     tree_view['columns']=list(display_data.columns) #update tree_view obj
     tree_view.column('#0', width=0, stretch=False)
     pandasGenerator=display_data.iterrows() #iterate dataframe records and get Series
-    treeviewInit(tree_view, display_data, pandasGenerator, cyclingObj)
+    treeviewInit(tree_view, scroll_bar, display_data, pandasGenerator, cyclingObj)
+
+def initScrollBarOntoTreeview(tree_view:Treeview, scroll_bar:ttk.Scrollbar):
+    '''
+    Adjusting scroll bar and Treeview via configuration and packing.
+    '''
+    #Unpack both widgets
+    tree_view.pack_forget()
+    scroll_bar.pack_forget()
+    # Repack in correct order (scrollbar FIRST, then treeview)
+    scroll_bar.pack(side='right', fill='y')
+    tree_view.pack(side='left', fill='both', expand=True)
+    # Connect
+    tree_view.configure(yscrollcommand=scroll_bar.set)
+    scroll_bar.configure(command=tree_view.yview)
 
 def retrieveEntry(column_name:tk.Entry,operator:tk.Entry,value_entry:tk.Entry, cyclingObj:CycloMeter, reset=False):
     '''Return input of textBox'''
@@ -228,6 +244,7 @@ def packTextButtonHelper(window):
     status_bar_frame=tk.Frame(window)
     status_bar=tk.Text(status_bar_frame, state='disabled', height=3, width=57)
     return status_bar, status_bar_frame
+
 
 def initEntryBoxes(window, label_names:list):
     '''label_names: list with strings that matches lenght of count
@@ -245,10 +262,11 @@ def initStatusBar(window):
     displayHelp()
     return status_bar_tuple
 
-def initButtonsConfig(tree_view, input_boxes:list, window, cycling_container:list):
+def initButtonsConfig(tree_scroll:list, input_boxes:list, window, cycling_container:list):
     '''Dict style configurations to pass on initButtons function
     Returns button configuration for the main window.'''
     column_field, operator_field, value_field=input_boxes
+    tree_view,scroll_bar=tree_scroll
     button_config=[
         {
             "parent": window,
@@ -260,7 +278,7 @@ def initButtonsConfig(tree_view, input_boxes:list, window, cycling_container:lis
             "parent": window,
             "type": "single",
             "text": "Insert Table",
-            "command": lambda:insertTable(tree_view, cycling_container[0])
+            "command": lambda:insertTable(tree_view, scroll_bar, cycling_container[0])
         },
         {
             "parent": window,
@@ -291,11 +309,13 @@ def initButtons(button_config):
                 buttons_filter.pack(side='left')
             frame_filter.pack()
 
-def applyStyle():
-    '''GUI style application via nested dicts'''
+def configureMainFields():
+    '''Initialize main fields like window, treeview and apply themes.'''
     background_color_main,text_color,button_backg_color='#262624',"#E9E9E9","#302F2E"
     window=tk.Tk(className="cycloMeter")
-    tree_view=Treeview(window, height=24)
+    tree_frame=tk.Frame(window)
+    tree_view=Treeview(tree_frame, height=24)
+    scroll_bar=ttk.Scrollbar(tree_frame,orient='vertical')
     window.configure(background=background_color_main)
     window.geometry('1200x800')
     style=ttk.Style(master=window)
@@ -335,6 +355,14 @@ def applyStyle():
             'foreground':foreground,
             'background':background,
             'width': 0
+        },
+        'Vertical.TScrollbar': 
+        {
+            'foreground':foreground,
+            'background':background,
+            'troughcolor':background,
+            'arrowcolor':foreground,
+            'bordercolor':background,
         }
     }
     for widget_names, properties in dictionary.items():
@@ -355,17 +383,21 @@ def applyStyle():
         },
         'TButton': {
     'background': (('pressed', '#D8642E'), ('active', '#D8642E'))
+        },
+        'Vertical.TScrollbar': {
+    'background': (('pressed', '#D8642E'), ('active', '#D8642E'))
         }
     }
     for widget_name, properties in dictionary.items():
         style.map(widget_name,**properties)
-    
-    return window,tree_view
 
-def packInitializeAll(window,tree_view,cycling_container):
+    return window,tree_view,scroll_bar,tree_frame
+
+def packInitializeAll(window,tree_frame,tree_view,scroll_bar,cycling_container):
     input_boxes=initEntryBoxes(window,["column:","operator:","value:"]) #input boxes
-    button_config=initButtonsConfig(tree_view,input_boxes,window, cycling_container)
+    button_config=initButtonsConfig([tree_view,scroll_bar],input_boxes,window, cycling_container)
     status_bar, status_bar_frame=initStatusBar(window)
+    tree_frame.pack()
     tree_view.pack()
     initButtons(button_config) #packs clickables
     for i in input_boxes:i.packButtonHelper() #Pack all special EntryField objects (object that has frame, label and tk.entry as property). 
@@ -373,8 +405,8 @@ def packInitializeAll(window,tree_view,cycling_container):
     
 def programInitialize():
     cycling_container = [None]
-    window,tree_view=applyStyle()
-    packInitializeAll(window,tree_view,cycling_container)
+    window,tree_view, scroll_bar,tree_frame=configureMainFields()
+    packInitializeAll(window,tree_frame,tree_view,scroll_bar,cycling_container)
     window.mainloop()
 
 if __name__ == "__main__":
@@ -385,13 +417,9 @@ if __name__ == "__main__":
         -Filterization is single dimensional, increase it for multiple columns and filterizations
         -Expand filterization errors
         
-    Improved encapsulation, documentation:
+    Improve QoL, visuals, structure:
 
-        -Add helper functions for encapsulated treeview initialization,
-        -Add conventional function and method descriptions, 
-        -Add more intuitive variable, function, and method names,
-        -Fix global variables,
-        -Fix cluttered and broad programInitialize interface,
-        -Add strava like colors and visualization,
-        -
+        -Add datetime domain for activity date column to format accurately,
+        -Add scrollbar widget for easier rotation around the table,
+        -Add strava visuals to scrollbar.
     '''
