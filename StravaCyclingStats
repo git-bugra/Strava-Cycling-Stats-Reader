@@ -37,7 +37,7 @@ class CycloMeter():
         else:
             self.sort_ascending=True
         self.sort_column=column
-        
+
     def setCondition(self, condition):
         '''Condition property for filterization'''
         if condition is None:
@@ -176,11 +176,11 @@ def loadFile(cyclingObj):
 
 def displayData(cyclingObj:CycloMeter):
     '''Copying current data, and return filtered data if filterization has taken place'''
-    if cyclingObj.condition is not None and cyclingObj.sort_column is not None: #If data is filtered, adjust the view.
+    if cyclingObj.condition is not None and cyclingObj.sort_column is not None: #Data filtered and sorted.
             display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition].sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
-    elif cyclingObj.condition is not None:
+    elif cyclingObj.condition is not None: #Filtered not sorted
             display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition]
-    elif cyclingObj.sort_column is not None:
+    elif cyclingObj.sort_column is not None: #Sorted not filtered
             display_data:pd.Dataframe=cyclingObj.data.sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
     else: #Unfiltered, raw data copy.
         display_data:pd.Dataframe=cyclingObj.data #iterate dataframe records and get Series
@@ -201,6 +201,7 @@ def treeviewInit(tree_view:Treeview, scroll_bar:ttk.Scrollbar, display_data, pan
     treeviewAdjustTable(display_data, tree_view, scroll_bar, cyclingObj)
     treeviewInsertValues(tree_view, pandasGenerator)
     initScrollBarOntoTreeview(tree_view, scroll_bar)
+    treeviewCopyFeature(tree_view)
     return cyclingObj
 
 def treeviewAdjustTable(display_data:pd.DataFrame, tree_view:Treeview, scroll_bar:ttk.Scrollbar, cyclingObj:CycloMeter):
@@ -215,6 +216,28 @@ def treeviewInsertValues(tree_view:Treeview,pandasGenerator):
         raw_values=value.values #Series obj (bool T/F) to raw values
         tree_view.insert('','end',values=raw_values.tolist()) #''(start) to end insertion of columns not records
     print(f"Table insertion is complete!") #debugging needs removed on scaffolding
+
+def treeviewCopyFeature(tree_view:Treeview):
+    '''Add copy feature via Ctrl+C to treeview rows'''
+    tree_view.bind("<Control-c>", lambda event:treeviewCopyHelper(event, tree_view))
+
+def treeviewCopyHelper(_event:tk.Event, tree_view:Treeview):
+    action=tree_view.selection()
+    if len(action)==0:pass
+    else:
+        row_dictionary=tree_view.item(action[0])
+        row_tuple=row_dictionary['values']
+        row_tuple=list(map(str, row_tuple)) #Map returns iterable map object, turn it into list
+        row=', '.join(row_tuple)
+        treeviewExtractCopyHelper(row,tree_view)
+
+def treeviewExtractCopyHelper(row,tree_view:Treeview):
+        window=tree_view.winfo_toplevel()
+        window.clipboard_clear()
+        columns_tuple=tree_view.cget('columns')
+        columns=', '.join(columns_tuple)
+        line=columns+'\n'+row
+        window.clipboard_append(line)
 
 def insertTable(tree_view, scroll_bar, cyclingObj:CycloMeter):
     '''Insert table with filtered or unfiltered results packed, and initialize treeView.'''
@@ -428,7 +451,9 @@ if __name__ == "__main__":
         -Expand filterization errors
         
     TBD:
-
-        -Fix sys.stdout messages not displaying GUI,
+        Copy to clipboard and descriptions:
+    
+        -Add descriptions to callables,
+        -Add copy to clipboard feature.
 
     '''
