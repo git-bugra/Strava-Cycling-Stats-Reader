@@ -37,8 +37,7 @@ class CycloMeter():
         else:
             self.sort_ascending=True
         self.sort_column=column
-        self.data = self.data.sort_values(by=column, ascending=self.sort_ascending)
-    
+        
     def setCondition(self, condition):
         '''Condition property for filterization'''
         if condition is None:
@@ -52,9 +51,11 @@ class CycloMeter():
         except:
             print('Value error, please enter valid characters.')
             return False
+        
         if reset:
             condition=None
             pass
+
         elif operator == ">":
             condition=self.data[column]>value
         elif operator == "<":
@@ -68,6 +69,7 @@ class CycloMeter():
         else:
             print('Invalid operation.')
             return False
+        
         #Feedback to CLI/GUI
         if condition is None:print('Filter is removed, insert table for default view.')
         else:print('Filterization is complete!')
@@ -174,8 +176,12 @@ def loadFile(cyclingObj):
 
 def displayData(cyclingObj:CycloMeter):
     '''Copying current data, and return filtered data if filterization has taken place'''
-    if cyclingObj.condition is not None: #If data is filtered, adjust the view.
-        display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition]
+    if cyclingObj.condition is not None and cyclingObj.sort_column is not None: #If data is filtered, adjust the view.
+            display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition].sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
+    elif cyclingObj.condition is not None:
+            display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition]
+    elif cyclingObj.sort_column is not None:
+            display_data:pd.Dataframe=cyclingObj.data.sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
     else: #Unfiltered, raw data copy.
         display_data:pd.Dataframe=cyclingObj.data #iterate dataframe records and get Series
     return display_data
@@ -187,7 +193,7 @@ def displayHelp():
 
 def updateStatusBar(status_bar:tk.Text):
     '''Reroutes sys print statements to TextRedirector object'''
-    #sys.stdout=TextRedirector(status_bar)
+    sys.stdout=TextRedirector(status_bar)
 
 def treeviewInit(tree_view:Treeview, scroll_bar:ttk.Scrollbar, display_data, pandasGenerator, cyclingObj:CycloMeter):
     '''Initiliazes treeview. Remove children, format size of the treeview, and insert values of cyclingObj'''
@@ -413,13 +419,16 @@ if __name__ == "__main__":
     programInitialize()
     
     '''TODO:
+        -Sorting and filtering is currently incompatible with indexes.
+            self.condition maps to self.data, such as 2nd index is true,
+            however, when the self.data is sorted and consequently flipped,
+            self.condition still maps to older indexes meanwhile self.data is flipped.
         -Do .exe
         -Filterization is single dimensional, increase it for multiple columns and filterizations
         -Expand filterization errors
         
-    Improve QoL, visuals, structure:
+    TBD:
 
-        -Add datetime domain for activity date column to format accurately,
-        -Add scrollbar widget for easier rotation around the table,
-        -Add strava visuals to scrollbar.
+        -Fix sys.stdout messages not displaying GUI,
+
     '''
