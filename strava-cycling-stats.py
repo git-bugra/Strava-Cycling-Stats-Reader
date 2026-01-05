@@ -48,7 +48,7 @@ class CycloMeter():
     def filterResults(self, column: str, operator: str, value: float, reset: bool):
         '''Filters results logic'''
         try:value=float(value)
-        except:
+        except ValueError:
             print('Value error, please enter valid characters.')
             return False
         
@@ -174,16 +174,41 @@ def loadFile(cyclingObj):
         raise ValueError('Failed to open user given path.')
     return cyclingObj
 
+def calculateSummableColumns(display_data:pd.DataFrame):
+    '''Take dataframe to assign columns to be assigned as summary at the end of the treeview object.'''
+    select=['distance', 'calories']
+    sum_dictionary={}
+    columns=display_data.columns
+    dt_columns=display_data.select_dtypes('number').columns
+    for i in [column for column in dt_columns if column in select]: #Iterate over 
+        raw_value=display_data[i].sum(skipna=True)
+        sum_dictionary[i]=raw_value
+    for j in columns:
+        if j not in sum_dictionary and j == 'activity id':
+            sum_dictionary[j]='TOTAL:\t'
+        elif j not in sum_dictionary:
+            sum_dictionary[j]='**'
+    return sum_dictionary
+
+def applySummableColumns(display_data:pd.DataFrame):
+    '''Apply the summable columns and add it to display data.
+    Orchestrates calculation call.'''
+    sum_dictionary=calculateSummableColumns(display_data)
+    sum_df=pd.DataFrame([sum_dictionary])
+    display_data=pd.concat([display_data,sum_df])
+    return display_data
+
 def displayData(cyclingObj:CycloMeter):
     '''Copying current data, and return filtered data if filterization has taken place'''
     if cyclingObj.condition is not None and cyclingObj.sort_column is not None: #Data filtered and sorted.
-            display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition].sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
+        display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition].sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
     elif cyclingObj.condition is not None: #Filtered not sorted
-            display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition]
+        display_data:pd.Dataframe=cyclingObj.data[cyclingObj.condition]
     elif cyclingObj.sort_column is not None: #Sorted not filtered
-            display_data:pd.Dataframe=cyclingObj.data.sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
+        display_data:pd.Dataframe=cyclingObj.data.sort_values(by=cyclingObj.sort_column, ascending= cyclingObj.sort_ascending)
     else: #Unfiltered, raw data copy.
         display_data:pd.Dataframe=cyclingObj.data #iterate dataframe records and get Series
+    display_data=applySummableColumns(display_data)
     return display_data
 
 def displayHelp():
@@ -445,3 +470,5 @@ def programInitialize():
 
 if __name__ == "__main__":
     programInitialize()
+    '''TODO:
+            -Add calculated column for total distance record'''
