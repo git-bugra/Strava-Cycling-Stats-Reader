@@ -193,9 +193,9 @@ def calculateSummableColumns(display_data:pd.DataFrame):
             kwh=precise_watts+approx_watts
             raw_value=f"{round(kwh ,3)} kWh"
         elif i == 'calories':
-            raw_value=f"{display_data[i].sum(skipna=True)} Kcal"
+            raw_value=f"{round(display_data[i].sum(skipna=True),3)} Kcal"
         elif i == 'distance':
-            raw_value=f"{display_data[i].sum(skipna=True)} KMs"
+            raw_value=f"{round(display_data[i].sum(skipna=True),3)} KMs"
         sum_dictionary[i]=raw_value
     for j in columns:
         if j not in sum_dictionary and j == 'activity id':
