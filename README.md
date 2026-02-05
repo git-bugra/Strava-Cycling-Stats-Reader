@@ -8,9 +8,10 @@ INSTRUCTIONS:
 
     2. It should download "export_xxxxx" like a ZIP file, extract it.
 
-    3. From the app, click Load CSV file and choose "activities.csv"
+    3. Download app installer.
+    
+    4. Open the app, click Load CSV file and choose "activities.csv"
 
-    4. Click on insert table, done!
+    5. Click on insert table, done!
 
 ![Strava app screenshot](imgs/app_ss.png)
-
